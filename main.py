@@ -1,4 +1,4 @@
-from beam_functions import ReadPostgres
+from beam_utils.beam_functions import ReadPostgres
 import apache_beam as beam
 from config import ARROW_DATABASE_CREDS, NUM_DIRECT_WORKERS
 
