@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+    arrow_database:
+        image: postgres:11
+        ports: 
+            - "5433:5432"
+        env_file:
+            - "postgresql.env"
+        volumes:
+            - ./data/db:/var/lib/postgresql/data
+        container_name: "arrow_database"
+        restart: always
