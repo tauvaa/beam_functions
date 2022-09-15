@@ -13,6 +13,7 @@ def get_db_creds(prefix):
 
 
 ARROW_DATABASE_CREDS = get_db_creds("arrow")
+TARGET_DATABASE_CREDS = get_db_creds("target")
 NUM_DIRECT_WORKERS = 4
 
 

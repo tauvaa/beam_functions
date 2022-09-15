@@ -52,7 +52,7 @@ class Connector:
 
     def __enter__(self):
         self.connection: psy.extensions.connection = psy.connect(
-            **ARROW_DATABASE_CREDS
+            **self.creds
         )
         return self
 

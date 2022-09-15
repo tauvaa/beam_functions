@@ -1,13 +1,17 @@
 from beam_utils.beam_functions import ReadPostgres, WritePostgres
 import apache_beam as beam
-from config import ARROW_DATABASE_CREDS, NUM_DIRECT_WORKERS
+from config import (
+    ARROW_DATABASE_CREDS,
+    NUM_DIRECT_WORKERS,
+    TARGET_DATABASE_CREDS,
+)
 
 
 if __name__ == "__main__":
 
     query = """
     select * from
-    test_table
+    arrow_table
     where
     id >= %(lower_bound)s
     and id < %(upper_bound)s
@@ -22,17 +26,19 @@ if __name__ == "__main__":
     with beam.Pipeline(options=poptions) as pipeline:
         numbers = (
             pipeline
-            | "ProduceNumbers"
+            | "Read"
             >> beam.io.Read(
                 ReadPostgres(
                     query,
-                    "test_table",
+                    "arrow_table",
                     "id",
                     ARROW_DATABASE_CREDS,
                 )
             )
-            # | beam.GroupBy(lambda s: s[1][0:2])
-            # | beam.Map(lambda x: (x[0], len(x[1])))
-            # | beam.Filter(lambda x: x[0] == "Gc")
-            | beam.ParDo(WritePostgres(ARROW_DATABASE_CREDS, """insert into test_table1 values(%s, %s)"""))
+            | beam.ParDo(
+                WritePostgres(
+                    TARGET_DATABASE_CREDS,
+                    """insert into target_table values(%s, %s)""",
+                )
+            )
         )

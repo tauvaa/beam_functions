@@ -94,7 +94,7 @@ class WritePostgres(beam.DoFn):
         
     
     def _flush(self):
-        with Connector(ARROW_DATABASE_CREDS) as connect:
+        with Connector(self.db_creds) as connect:
             connect.run_commit_query(self.query, self.batch, multi_params=True)
         print("batch ran")
 
@@ -114,11 +114,11 @@ if __name__ == "__main__":
     ])
 
     with beam.Pipeline(options=poptions) as pipeline:
-        numbers = pipeline | "ProduceNumbers" >> beam.io.Read(
+        numbers = (pipeline | "ProduceNumbers" >> beam.io.Read(
             ReadPostgres(
                 query,
                 "test_table",
                 "id",
                 ARROW_DATABASE_CREDS,
-            ))\
-            |beam.ParDo(WritePostgres(ARROW_DATABASE_CREDS, query="insert into test_table1 values(%s, %s)"))
+            ))
+            |beam.ParDo(WritePostgres(ARROW_DATABASE_CREDS, query="insert into test_table1 values(%s, %s)")))

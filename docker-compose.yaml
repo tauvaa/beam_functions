@@ -6,8 +6,20 @@ services:
         ports: 
             - "5433:5432"
         env_file:
-            - "postgresql.env"
+            - "arrow-postgresql.env"
         volumes:
-            - ./data/db:/var/lib/postgresql/data
+            - ./data/adb:/var/lib/postgresql/data
+            - ./start_up/arrow.sql:/docker-entrypoint-initdb.d/01arrow.sql
         container_name: "arrow_database"
+        restart: always
+    target_database:
+        image: postgres:11
+        ports: 
+            - "5434:5432"
+        env_file:
+            - "target-postgresql.env"
+        volumes:
+            - ./data/tdb:/var/lib/postgresql/data
+            - ./start_up/target.sql:/docker-entrypoint-initdb.d/01target.sql
+        container_name: "target_database"
         restart: always
