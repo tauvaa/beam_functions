@@ -1,4 +1,4 @@
-from beam_utils.beam_functions import ReadPostgres
+from beam_utils.beam_functions import ReadPostgres, WritePostgres
 import apache_beam as beam
 from config import ARROW_DATABASE_CREDS, NUM_DIRECT_WORKERS
 
@@ -31,8 +31,8 @@ if __name__ == "__main__":
                     ARROW_DATABASE_CREDS,
                 )
             )
-            | beam.GroupBy(lambda s: s[1][0:2])
-            | beam.Map(lambda x: (x[0], len(x[1])))
-            | beam.Filter(lambda x: x[0] == "Gc")
-            | beam.Map(print)
+            # | beam.GroupBy(lambda s: s[1][0:2])
+            # | beam.Map(lambda x: (x[0], len(x[1])))
+            # | beam.Filter(lambda x: x[0] == "Gc")
+            | beam.ParDo(WritePostgres(ARROW_DATABASE_CREDS, """insert into test_table1 values(%s, %s)"""))
         )

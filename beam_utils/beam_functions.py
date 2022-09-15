@@ -51,6 +51,7 @@ class ReadPostgres(iobase.BoundedSource):
         total_rows = max_id - min_id
         rows_per_bundle = (desired_bundle_size / table_size) * total_rows
         rows_per_bundle = int(rows_per_bundle)
+        print("rows per bundle", rows_per_bundle)
         start_position = min_id
         stop_position = min_id + rows_per_bundle
         while stop_position <= max_id + rows_per_bundle:
@@ -75,6 +76,32 @@ class ReadPostgres(iobase.BoundedSource):
                 yield d
 
 
+class WritePostgres(beam.DoFn):
+    def __init__(self, db_creds, query, *unused_args, **unused_kwargs):
+        self.db_creds = db_creds
+        self.batch = []
+        self.batch_size = 10000
+        self.query = query
+
+    def process(self, element, *args, **kwargs):
+        self.batch.append(element)
+        if len(self.batch) > self.batch_size:
+            self._flush()
+
+    
+    def finish_bundle(self):
+        self._flush()
+        
+    
+    def _flush(self):
+        with Connector(ARROW_DATABASE_CREDS) as connect:
+            connect.run_commit_query(self.query, self.batch, multi_params=True)
+        print("batch ran")
+
+        
+        self.batch = []
+
+
 if __name__ == "__main__":
     query = """
     select * from
@@ -93,5 +120,5 @@ if __name__ == "__main__":
                 "test_table",
                 "id",
                 ARROW_DATABASE_CREDS,
-            )
-        ) |beam.combiners.Count().Globally()|beam.Map(print)
+            ))\
+            |beam.ParDo(WritePostgres(ARROW_DATABASE_CREDS, query="insert into test_table1 values(%s, %s)"))
