@@ -6,17 +6,30 @@ from apache_beam.io.range_trackers import (
     OrderedPositionRangeTracker,
 )
 
-from config import ARROW_DATABASE_CREDS
+from config import ARROW_DATABASE_CREDS, TARGET_DATABASE_CREDS
 from connections import Connector
 
 
-class ReadPostgres(iobase.BoundedSource):
-    def __init__(self, query, table_name, column_name, creds):
+class ReadPostgres(beam.PTransform):
+    def __init__(self, query, table_name, column_name, creds, params=None):
+        super().__init__()
+
+        self.bounded_source = _ReadPostgres(
+            query, table_name, column_name, creds, params
+        )
+
+    def expand(self, pcoll):
+        return pcoll | iobase.Read(self.bounded_source)
+
+
+class _ReadPostgres(iobase.BoundedSource):
+    def __init__(self, query, table_name, column_name, creds, params):
         super().__init__()
         self.query = query
         self.creds = creds
         self.column_name = column_name
         self.table_name = table_name
+        self.params = params
 
     def estimate_size(self):
         with Connector(self.creds) as connector:
@@ -68,11 +81,13 @@ class ReadPostgres(iobase.BoundedSource):
         lower_bound = range_tracker.start_position()
 
         upper_bound = range_tracker.stop_position()
+
+        params = {"lower_bound": lower_bound, "upper_bound": upper_bound}
+        if self.params is not None:
+            params = {**params, **self.params}
+
         with Connector(self.creds) as connector:
-            for d in connector.run_read_query(
-                    self.query,
-                    {"lower_bound": lower_bound, "upper_bound": upper_bound},
-                    ):
+            for d in connector.run_read_query(self.query, params):
                 yield d
 
 
@@ -88,37 +103,43 @@ class WritePostgres(beam.DoFn):
         if len(self.batch) > self.batch_size:
             self._flush()
 
-    
     def finish_bundle(self):
         self._flush()
-        
-    
+
     def _flush(self):
         with Connector(self.db_creds) as connect:
             connect.run_commit_query(self.query, self.batch, multi_params=True)
         print("batch ran")
 
-        
         self.batch = []
 
 
 if __name__ == "__main__":
     query = """
     select * from
-    test_table
+    arrow_table
     where
     id >= %(lower_bound)s
     and id < %(upper_bound)s
+    and id > %(fake_id)s
     """
-    poptions = beam.pipeline.PipelineOptions([
-    ])
+    poptions = beam.pipeline.PipelineOptions([])
 
     with beam.Pipeline(options=poptions) as pipeline:
-        numbers = (pipeline | "ProduceNumbers" >> beam.io.Read(
-            ReadPostgres(
+        numbers = (
+            pipeline
+            | "read_stuff"
+            >> ReadPostgres(
                 query,
-                "test_table",
+                "arrow_table",
                 "id",
                 ARROW_DATABASE_CREDS,
-            ))
-            |beam.ParDo(WritePostgres(ARROW_DATABASE_CREDS, query="insert into test_table1 values(%s, %s)")))
+                params={"fake_id": 299000},
+            )
+            | beam.ParDo(
+                WritePostgres(
+                    TARGET_DATABASE_CREDS,
+                    query="insert into target_table values(%s, %s)",
+                )
+            )
+        )
