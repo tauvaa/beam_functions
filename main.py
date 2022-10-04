@@ -1,14 +1,11 @@
-from beam_utils.beam_functions import ReadPostgres, WritePostgres
 import apache_beam as beam
-from config import (
-    ARROW_DATABASE_CREDS,
-    NUM_DIRECT_WORKERS,
-    TARGET_DATABASE_CREDS,
-)
+
+from beam_utils.beam_functions import ReadPostgres, WritePostgres
+from config import (ARROW_DATABASE_CREDS, NUM_DIRECT_WORKERS,
+                    TARGET_DATABASE_CREDS)
 
 
-if __name__ == "__main__":
-
+def main():
     query = """
     select * from
     arrow_table
@@ -24,7 +21,7 @@ if __name__ == "__main__":
     )
 
     with beam.Pipeline(options=poptions) as pipeline:
-        numbers = (
+        (
             pipeline
             | "Read"
             >> beam.io.Read(
@@ -42,3 +39,7 @@ if __name__ == "__main__":
                 )
             )
         )
+
+
+if __name__ == "__main__":
+    main()
